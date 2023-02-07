@@ -4,6 +4,8 @@
 
 - (void)replyError:(NSString *)errorCode;
 
+- (void)replyWithError:(NSError *)error;
+
 - (void)reply:(id)obj;
 
 - (void)notImplemented;

@@ -37,7 +37,17 @@
         FlutterError *error = [FlutterError errorWithCode:errorCode message:nil details:nil];
         self.result(error);
     });
-    
+}
+
+- (void)replyWithError:(NSError *)nsError {
+    if (isReply) {
+        return;
+    }
+    isReply = YES;
+    dispatch_async(dispatch_get_main_queue(), ^{        
+        FlutterError *error = [FlutterError errorWithCode: [NSString stringWithFormat:@"%@", @(nsError.code)] message:nsError.localizedDescription details:nil];        
+        self.result(error);
+    });
 }
 
 - (void)notImplemented {

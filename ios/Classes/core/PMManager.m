@@ -14,6 +14,15 @@
 #import "PMRequestTypeUtils.h"
 #import "PMThumbLoadOption.h"
 
+@interface ResultInfoInterpreter: NSObject
+-(instancetype)initWithInfo:(NSDictionary *)info;
+@property (nonatomic, readonly, nullable) NSDictionary *info;
+@property (nonatomic, assign, readonly, getter=isThumbnail) BOOL thumbnail;
+@property (nonatomic, assign, readonly, getter=isCancelled) BOOL cancelled;
+@property (nonatomic, assign, readonly, getter=isFinished) BOOL finished;
+@property (nonatomic, readonly, nullable) NSError *error;
+@end
+
 @implementation PMManager {
     BOOL __isAuth;
     PMCacheContainer *cacheContainer;
@@ -403,12 +412,14 @@
                       contentMode:option.contentMode
                           options:requestOptions
                     resultHandler:^(PMImage *result, NSDictionary *info) {
-        BOOL downloadFinished = [PMManager isDownloadFinish:info];
-        
-        if (!downloadFinished) {
+        ResultInfoInterpreter *inter = [[ResultInfoInterpreter alloc] initWithInfo:info];
+        if (inter.error) {
+            [handler replyWithError:inter.error];
             return;
         }
-        
+        if (!inter.isFinished) {
+            return;
+        }
         if ([handler isReplied]) {
             return;
         }
@@ -574,8 +585,12 @@
      resultHandler:^(AVAsset *_Nullable asset,
                      AVAudioMix *_Nullable audioMix,
                      NSDictionary *_Nullable info) {
-        BOOL downloadFinish = [PMManager isDownloadFinish:info];
-        if (!downloadFinish) {
+        ResultInfoInterpreter *interpreter = [[ResultInfoInterpreter alloc] initWithInfo:info];
+        if (interpreter.error) {
+            [handler replyWithError:interpreter.error];
+            return;
+        }
+        if (!interpreter.isFinished) {
             return;
         }
         
@@ -775,9 +790,12 @@
                           options:options
                     resultHandler:^(PMImage *_Nullable image,
                                     NSDictionary *_Nullable info) {
-        
-        BOOL downloadFinished = [PMManager isDownloadFinish:info];
-        if (!downloadFinished) {
+        ResultInfoInterpreter *inter = [[ResultInfoInterpreter alloc] initWithInfo:info];
+        if (inter.error) {
+            [handler replyWithError:inter.error];
+            return;
+        }
+        if (!inter.isFinished) {
             return;
         }
         
@@ -796,12 +814,6 @@
         
         [self notifySuccess:progressHandler];
     }];
-}
-
-+ (BOOL)isDownloadFinish:(NSDictionary *)info {
-    return ![info[PHImageCancelledKey] boolValue] &&      // No cancel.
-    !info[PHImageErrorKey] &&                      // Error.
-    ![info[PHImageResultIsDegradedKey] boolValue]; // thumbnail
 }
 
 - (PMAssetPathEntity *)fetchPathProperties:(NSString *)id type:(int)type filterOption:(PMFilterOptionGroup *)filterOption {
@@ -1567,6 +1579,34 @@
         PHAsset *asset = assets.firstObject;
         path.modifiedDate = (long) asset.modificationDate.timeIntervalSince1970;
     }
+}
+
+@end
+
+@implementation ResultInfoInterpreter
+
+- (instancetype)initWithInfo:(NSDictionary *)info {
+    self = [super init];
+    if (self) {
+        _info = [info copy];
+    }
+    return self;
+}
+
+- (BOOL)isCancelled {
+    return [self.info[PHImageCancelledKey] boolValue];
+}
+
+- (BOOL)isThumbnail {
+    return [self.info[PHImageResultIsDegradedKey] boolValue];
+}
+
+- (NSError *_Nullable)error {
+    return self.info[PHImageErrorKey];
+}
+
+- (BOOL)isFinished {
+    return !self.isCancelled && !self.error && !self.isThumbnail;
 }
 
 @end
