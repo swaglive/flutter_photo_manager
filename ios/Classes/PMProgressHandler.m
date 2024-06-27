@@ -17,10 +17,7 @@
     };
 
     if (channel) {
-        // Use the main thread to invoke the method.
-        dispatch_async(dispatch_get_main_queue(), ^{
-          [channel invokeMethod:@"notifyProgress" arguments:dict];
-        });
+        [channel invokeMethod:@"notifyProgress" arguments:dict];
     }
 
 }
